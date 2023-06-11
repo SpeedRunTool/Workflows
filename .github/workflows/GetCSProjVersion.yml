@@ -1,0 +1,53 @@
+name: C# project version detection
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        required: true
+        type: string
+      ref:
+        required: true
+        type: string
+      config-path:
+        required: true
+        type: string
+      release-type-tag:
+        required: true
+        type: string
+
+    outputs:
+      version:
+        description: "The version string calculated from the version tags within a csproj file."
+        value: ${{ jobs.versionDetect.outputs.project-version-string-output }}
+
+jobs:
+  versionDetect:
+    name: C# project version detection
+    runs-on: windows-latest
+
+    outputs:
+      project-version-string-output: ${{ steps.project-version-string.outputs.Version }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        repository: ${{inputs.repository}}
+        ref: ${{inputs.ref}}
+
+    - name: Get project version information
+      id: project-versions
+      run: |
+        Select-String -Path "${{inputs.config-path}}" '<(?<TagName>\w*?Version)>(?<Major>\d+)(?:\.(?<Minor>\d+))(?:\.(?<Patch>\d+)|-(?<Quality>\w+)|\+(?<Tag>\w+))?(?:\.(?<Patch>\d+)|-(?<Quality>\w+)|\+(?<Tag>\w+))?(?:\.(?<Patch>\d+)|-(?<Quality>\w+)|\+(?<Tag>\w+))?</\w*?Version>' -AllMatches | Foreach-Object -Process {$_.Matches} | Foreach-Object -Process { $tagName = $_.Groups["TagName"].Value; $_.Groups | Where-Object { $_.Name -ne "0" -and $_.Name -ne "TagName"; } } | Foreach-Object -Process { $tagName + "_" + $_.Name + "=" + $_.Value >> $env:GITHUB_OUTPUT }
+
+    - name: Set project version string
+      id: project-version-string
+      run: |
+        echo 'Version=${{steps.project-versions.outputs.Version_Major}}.${{steps.project-versions.outputs.Version_Minor}}.${{steps.project-versions.outputs.Version_Patch}}${{inputs.release-type-tag}}' >> $env:GITHUB_OUTPUT
+
+    - name: Ensure we detected the version properly
+      id: assert-version
+      if: ${{ steps.project-version-string.outputs.Version == format('..{0}', inputs.release-type-tag) }}
+      run: exit 1
