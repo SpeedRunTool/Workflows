@@ -32,14 +32,22 @@ jobs:
     with:
       repository: ${{ github.GITHUB_REPOSITORY  }}
       ref: ${{ github.GITHUB_REF_NAME  }}
-      config-path: src/SRTProducerMyPlugin/SRTProducerMyPlugin.csproj
+      config-path: src/SampleProject/SampleProject.csproj
       release-type-tag: ${{ inputs.release-type-tag }}
 
+  GetUTCDateTime:
+    name: Get UTC DateTime
+    uses: SpeedRunTool/Workflows/.github/workflows/GetUTCDateTime.yml@main
+
   Report:
-    name: Report version
+    name: Report values
     runs-on: ubuntu-latest
-    needs: GetCSProjVersion
+    needs: [GetCSProjVersion, GetUTCDateTime]
+
     steps:
-    - name: Report
+    - name: Report Version
       run: echo ${{ needs.GetCSProjVersion.outputs.version }}
+
+    - name: Report UTC DateTime
+      run: echo ${{ needs.GetUTCDateTime.outputs.utc-datetime }}
 ```
